@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.326">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Multiple Hypothesis Testing</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="multiple_hypothesis_testing_files/libs/clipboard/clipboard.min.js"></script>
+<script src="multiple_hypothesis_testing_files/libs/quarto-html/quarto.js"></script>
+<script src="multiple_hypothesis_testing_files/libs/quarto-html/popper.min.js"></script>
+<script src="multiple_hypothesis_testing_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="multiple_hypothesis_testing_files/libs/quarto-html/anchor.min.js"></script>
+<link href="multiple_hypothesis_testing_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="multiple_hypothesis_testing_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="multiple_hypothesis_testing_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="multiple_hypothesis_testing_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="multiple_hypothesis_testing_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="multiple_hypothesis_testing.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Multiple Hypothesis Testing</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<p>Multiple hypothesis testing occurs when we repeatedly test models on a number of features, as the probability of obtaining one or more false discoveries increases with the number of tests. For example, genomic scientists often test whether any of the thousands of genes have activity significantly different than in an outcome of interest.</p>
+<p>In this blog post, we will cover few of the popuar methods used to to account for multiple hypothesis testing by adjusting model p-values:</p>
+<ol type="1">
+<li>False Positive Rate (FPR)</li>
+<li>Family-Wise Error Rate (FWER)</li>
+<li>False Discovery Rate (FDR)</li>
+</ol>
+<p>and explain when it makes sense to use them.</p>
+<p>This post can be summarized in the following image:</p>
+<p><img src="images/pvalue_adjustments.png" width="90%" height="90%"></p>
+<section id="create-test-data" class="level2">
+<h2 class="anchored" data-anchor-id="create-test-data">Create test data</h2>
+<p>We will create a simulated example to better understand how various manipulation of p-values can lead to different conclusions. To run this code, we need Python with <code>pandas</code>, <code>numpy</code>, <code>scipy</code> and <code>statsmodels</code> libraries installed.</p>
+<p>For the purpose of this example, we start by creating a dataframe of 1000 features. 990 of which (99%) will have their values generated from a Normal distribution with mean = 0, called a Null model. (In a function <code>norm.rvs()</code> used below, mean is set using a <code>loc</code> argument.) The remaining 1% of the features will be generated from a Normal distribution mean = 3, called a Non-Null model. We will use these as representing interesting features that we would like to discover.</p>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.stats <span class="im">import</span> norm</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> statsmodels.stats.multitest <span class="im">import</span> multipletests</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">42</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>n_null <span class="op">=</span> <span class="dv">9900</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>n_nonnull <span class="op">=</span> <span class="dv">100</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.DataFrame({</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">'hypothesis'</span>: np.concatenate((</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        [<span class="st">'null'</span>] <span class="op">*</span> n_null,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        [<span class="st">'non-null'</span>] <span class="op">*</span> n_nonnull,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    )),</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">'feature'</span>: <span class="bu">range</span>(n_null <span class="op">+</span> n_nonnull),</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">'x'</span>: np.concatenate((</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        norm.rvs(loc<span class="op">=</span><span class="dv">0</span>, scale<span class="op">=</span><span class="dv">1</span>, size<span class="op">=</span>n_null),</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        norm.rvs(loc<span class="op">=</span><span class="dv">3</span>, scale<span class="op">=</span><span class="dv">1</span>, size<span class="op">=</span>n_nonnull),</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    ))</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>})</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>For each of the 1000 features, p-value is a probability of observing the value at least as large, if we assume it was generated from a Null distribution.</p>
+<p>P-values can be calculating from cumulative distribution. Cumulative distribution from <code>scipy.stats</code>, is named <code>norm.cdf()</code> and represents the probability of obtaining a value equal to or less than the one observed. Then to calculate the p-value we calculate <code>1 - norm.cdf()</code> to find the probability <strong>greater than</strong> the one observed:</p>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'p_value'</span>] <span class="op">=</span> <span class="dv">1</span> <span class="op">-</span> norm.cdf(df[<span class="st">'x'</span>], loc <span class="op">=</span> <span class="dv">0</span>, scale <span class="op">=</span> <span class="dv">1</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>df</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="4">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">hypothesis</th>
+<th data-quarto-table-cell-role="th">feature</th>
+<th data-quarto-table-cell-role="th">x</th>
+<th data-quarto-table-cell-role="th">p_value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">0</td>
+<td>null</td>
+<td>0</td>
+<td>0.496714</td>
+<td>0.309695</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">1</td>
+<td>null</td>
+<td>1</td>
+<td>-0.138264</td>
+<td>0.554984</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2</td>
+<td>null</td>
+<td>2</td>
+<td>0.647689</td>
+<td>0.258593</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">3</td>
+<td>null</td>
+<td>3</td>
+<td>1.523030</td>
+<td>0.063876</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4</td>
+<td>null</td>
+<td>4</td>
+<td>-0.234153</td>
+<td>0.592567</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9995</td>
+<td>non-null</td>
+<td>9995</td>
+<td>4.301102</td>
+<td>0.000008</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9996</td>
+<td>non-null</td>
+<td>9996</td>
+<td>1.001655</td>
+<td>0.158255</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9997</td>
+<td>non-null</td>
+<td>9997</td>
+<td>2.294683</td>
+<td>0.010876</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9998</td>
+<td>non-null</td>
+<td>9998</td>
+<td>3.495766</td>
+<td>0.000236</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9999</td>
+<td>non-null</td>
+<td>9999</td>
+<td>3.644388</td>
+<td>0.000134</td>
+</tr>
+</tbody>
+</table>
+
+<p>10000 rows × 4 columns</p>
+</div>
+</div>
+</div>
+</section>
+<section id="false-positive-rate" class="level2">
+<h2 class="anchored" data-anchor-id="false-positive-rate">False Positive Rate</h2>
+<p>The first concept is called a False Positive Rate, and is defined as a fraction of null hypothesis that we flag as “significant” (also called Type I errors). The p-values we calculated earlier can be interpreted as a false positive rate by their very definition: they are probabilities of obtaining a value at least as large as a specified value, when we sample a null distribution.</p>
+<p>For illustrative purposes, we will apply a common (magical) p-value threshold of 0.05, but any threshold can be used:</p>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'is_raw_p_value_significant'</span>] <span class="op">=</span> df[<span class="st">'p_value'</span>] <span class="op">&lt;=</span> <span class="fl">0.05</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>df.groupby([<span class="st">'hypothesis'</span>, <span class="st">'is_raw_p_value_significant'</span>]).size()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="5">
+<pre><code>hypothesis  is_raw_p_value_significant
+non-null    False                            8
+            True                            92
+null        False                         9407
+            True                           493
+dtype: int64</code></pre>
+</div>
+</div>
+<p>notice that out of our 9900 null hypotheses, 493 are flagged as “significant”. Therefore, a False Positive Rate is: FPR = 493 / (493 + 9940) = 0.053.</p>
+<p>The main problem with FPR is that in a real scenario we do not a priori know which hypotheses are null and which are not. Then, the raw p-value on its own (False Positive Rate) can be of little use. In our case when the fraction of non-null features is very small, most of the features flagged as significant will be null, because there are many more of them. Specifically, out of 92 + 493 = 585 features flagged true (“positive”), only 92 are from our non-null distribution. That means that a majority or about 84% of reported significant features (493 / 585) are false positives!</p>
+<p>So what can we do about this? There are two common methods of addressing this issue: instead of False Positive Rate, we can calculate Family-Wise Error Rate (FWER) or a False Discovery Rate (FPR). Each of these methods takes the set of raw, unadjusted, p-values as an input, and produces a new set of “adjusted p-values” as an output. These “adjusted p-values” represent estimates of <em>upper bounds</em> on FWER and FDR. They can be obtained from <code>multipletests()</code> function, which is part of the <code>statsmodels</code> Python library:</p>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> adjust_pvalues(p_values, method):</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>   <span class="cf">return</span> multipletests(p_values, method <span class="op">=</span> method)[<span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="family-wise-error-rate" class="level2">
+<h2 class="anchored" data-anchor-id="family-wise-error-rate">Family-Wise Error Rate</h2>
+<p>Family-Wise Error Rate is a probability of falsly rejecting one or more null hypothesis, i.e.&nbsp;flagging true Null as Non-null. In other words, this is a probability of obtaining one or more false positives.</p>
+<p>When there is only one hypothesis being tested, this is equal to the raw p-value (false positive rate). However, the more hypotheses are tested, the more likely we are going to get one or more false positives. There are two popular ways to estimate FWER: Bonferroni and Holm corrections.</p>
+<section id="bonferroni-correction" class="level3">
+<h3 class="anchored" data-anchor-id="bonferroni-correction">Bonferroni correction</h3>
+<p>One of the most popular method for correcting for multiple hypothesis testing is a Bonferroni procedure. The reason this method is popular is because it is very easy to calculate, even by hand. This procedure multiplies p-values by the total number of tests performed, or sets them to 1 if this would make that exceed it.</p>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'p_value_bonf'</span>] <span class="op">=</span> adjust_pvalues(df[<span class="st">'p_value'</span>], <span class="st">'bonferroni'</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>df.sort_values(<span class="st">'p_value_bonf'</span>).head(<span class="dv">20</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="7">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">hypothesis</th>
+<th data-quarto-table-cell-role="th">feature</th>
+<th data-quarto-table-cell-role="th">x</th>
+<th data-quarto-table-cell-role="th">p_value</th>
+<th data-quarto-table-cell-role="th">is_raw_p_value_significant</th>
+<th data-quarto-table-cell-role="th">p_value_bonf</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9907</td>
+<td>non-null</td>
+<td>9907</td>
+<td>5.322609</td>
+<td>5.114466e-08</td>
+<td>True</td>
+<td>0.000511</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9942</td>
+<td>non-null</td>
+<td>9942</td>
+<td>5.022174</td>
+<td>2.554492e-07</td>
+<td>True</td>
+<td>0.002554</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9943</td>
+<td>non-null</td>
+<td>9943</td>
+<td>4.831177</td>
+<td>6.786409e-07</td>
+<td>True</td>
+<td>0.006786</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9941</td>
+<td>non-null</td>
+<td>9941</td>
+<td>4.801528</td>
+<td>7.872958e-07</td>
+<td>True</td>
+<td>0.007873</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9976</td>
+<td>non-null</td>
+<td>9976</td>
+<td>4.674271</td>
+<td>1.475000e-06</td>
+<td>True</td>
+<td>0.014750</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9964</td>
+<td>non-null</td>
+<td>9964</td>
+<td>4.589147</td>
+<td>2.225301e-06</td>
+<td>True</td>
+<td>0.022253</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9974</td>
+<td>non-null</td>
+<td>9974</td>
+<td>4.515318</td>
+<td>3.161090e-06</td>
+<td>True</td>
+<td>0.031611</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9990</td>
+<td>non-null</td>
+<td>9990</td>
+<td>4.433625</td>
+<td>4.633087e-06</td>
+<td>True</td>
+<td>0.046331</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9909</td>
+<td>non-null</td>
+<td>9909</td>
+<td>4.414029</td>
+<td>5.073215e-06</td>
+<td>True</td>
+<td>0.050732</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9916</td>
+<td>non-null</td>
+<td>9916</td>
+<td>4.316007</td>
+<td>7.943832e-06</td>
+<td>True</td>
+<td>0.079438</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9995</td>
+<td>non-null</td>
+<td>9995</td>
+<td>4.301102</td>
+<td>8.497538e-06</td>
+<td>True</td>
+<td>0.084975</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9949</td>
+<td>non-null</td>
+<td>9949</td>
+<td>4.300625</td>
+<td>8.515838e-06</td>
+<td>True</td>
+<td>0.085158</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9994</td>
+<td>non-null</td>
+<td>9994</td>
+<td>4.194214</td>
+<td>1.369094e-05</td>
+<td>True</td>
+<td>0.136909</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9908</td>
+<td>non-null</td>
+<td>9908</td>
+<td>4.061817</td>
+<td>2.434616e-05</td>
+<td>True</td>
+<td>0.243462</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9923</td>
+<td>non-null</td>
+<td>9923</td>
+<td>4.046955</td>
+<td>2.594416e-05</td>
+<td>True</td>
+<td>0.259442</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9904</td>
+<td>non-null</td>
+<td>9904</td>
+<td>3.970488</td>
+<td>3.586272e-05</td>
+<td>True</td>
+<td>0.358627</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9911</td>
+<td>non-null</td>
+<td>9911</td>
+<td>3.967932</td>
+<td>3.624951e-05</td>
+<td>True</td>
+<td>0.362495</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9900</td>
+<td>non-null</td>
+<td>9900</td>
+<td>3.934655</td>
+<td>4.165819e-05</td>
+<td>True</td>
+<td>0.416582</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2895</td>
+<td>null</td>
+<td>2895</td>
+<td>3.926238</td>
+<td>4.314244e-05</td>
+<td>True</td>
+<td>0.431424</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9950</td>
+<td>non-null</td>
+<td>9950</td>
+<td>3.867805</td>
+<td>5.490961e-05</td>
+<td>True</td>
+<td>0.549096</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="holm-correction" class="level3">
+<h3 class="anchored" data-anchor-id="holm-correction">Holm correction</h3>
+<p>Holm’s correction is more powerful than Bonferroni’s correction, and its difference is that the p-values are not all multiplied by the total number of tests (here, 10,000). Instead, each sorted p-value is multiplied progressively by a decreasing sequence 10,000, 9,999, 9,998, 9,997, …, 3, 2, 1.</p>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'p_value_holm'</span>] <span class="op">=</span> adjust_pvalues(df[<span class="st">'p_value'</span>], <span class="st">'holm'</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>df.sort_values(<span class="st">'p_value_holm'</span>).head(<span class="dv">20</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="8">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">hypothesis</th>
+<th data-quarto-table-cell-role="th">feature</th>
+<th data-quarto-table-cell-role="th">x</th>
+<th data-quarto-table-cell-role="th">p_value</th>
+<th data-quarto-table-cell-role="th">is_raw_p_value_significant</th>
+<th data-quarto-table-cell-role="th">p_value_bonf</th>
+<th data-quarto-table-cell-role="th">p_value_holm</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9907</td>
+<td>non-null</td>
+<td>9907</td>
+<td>5.322609</td>
+<td>5.114466e-08</td>
+<td>True</td>
+<td>0.000511</td>
+<td>0.000511</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9942</td>
+<td>non-null</td>
+<td>9942</td>
+<td>5.022174</td>
+<td>2.554492e-07</td>
+<td>True</td>
+<td>0.002554</td>
+<td>0.002554</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9943</td>
+<td>non-null</td>
+<td>9943</td>
+<td>4.831177</td>
+<td>6.786409e-07</td>
+<td>True</td>
+<td>0.006786</td>
+<td>0.006785</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9941</td>
+<td>non-null</td>
+<td>9941</td>
+<td>4.801528</td>
+<td>7.872958e-07</td>
+<td>True</td>
+<td>0.007873</td>
+<td>0.007871</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9976</td>
+<td>non-null</td>
+<td>9976</td>
+<td>4.674271</td>
+<td>1.475000e-06</td>
+<td>True</td>
+<td>0.014750</td>
+<td>0.014744</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9964</td>
+<td>non-null</td>
+<td>9964</td>
+<td>4.589147</td>
+<td>2.225301e-06</td>
+<td>True</td>
+<td>0.022253</td>
+<td>0.022242</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9974</td>
+<td>non-null</td>
+<td>9974</td>
+<td>4.515318</td>
+<td>3.161090e-06</td>
+<td>True</td>
+<td>0.031611</td>
+<td>0.031592</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9990</td>
+<td>non-null</td>
+<td>9990</td>
+<td>4.433625</td>
+<td>4.633087e-06</td>
+<td>True</td>
+<td>0.046331</td>
+<td>0.046298</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9909</td>
+<td>non-null</td>
+<td>9909</td>
+<td>4.414029</td>
+<td>5.073215e-06</td>
+<td>True</td>
+<td>0.050732</td>
+<td>0.050692</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9916</td>
+<td>non-null</td>
+<td>9916</td>
+<td>4.316007</td>
+<td>7.943832e-06</td>
+<td>True</td>
+<td>0.079438</td>
+<td>0.079367</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9995</td>
+<td>non-null</td>
+<td>9995</td>
+<td>4.301102</td>
+<td>8.497538e-06</td>
+<td>True</td>
+<td>0.084975</td>
+<td>0.084890</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9949</td>
+<td>non-null</td>
+<td>9949</td>
+<td>4.300625</td>
+<td>8.515838e-06</td>
+<td>True</td>
+<td>0.085158</td>
+<td>0.085065</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9994</td>
+<td>non-null</td>
+<td>9994</td>
+<td>4.194214</td>
+<td>1.369094e-05</td>
+<td>True</td>
+<td>0.136909</td>
+<td>0.136745</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9908</td>
+<td>non-null</td>
+<td>9908</td>
+<td>4.061817</td>
+<td>2.434616e-05</td>
+<td>True</td>
+<td>0.243462</td>
+<td>0.243145</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9923</td>
+<td>non-null</td>
+<td>9923</td>
+<td>4.046955</td>
+<td>2.594416e-05</td>
+<td>True</td>
+<td>0.259442</td>
+<td>0.259078</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9904</td>
+<td>non-null</td>
+<td>9904</td>
+<td>3.970488</td>
+<td>3.586272e-05</td>
+<td>True</td>
+<td>0.358627</td>
+<td>0.358089</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9911</td>
+<td>non-null</td>
+<td>9911</td>
+<td>3.967932</td>
+<td>3.624951e-05</td>
+<td>True</td>
+<td>0.362495</td>
+<td>0.361915</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9900</td>
+<td>non-null</td>
+<td>9900</td>
+<td>3.934655</td>
+<td>4.165819e-05</td>
+<td>True</td>
+<td>0.416582</td>
+<td>0.415874</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2895</td>
+<td>null</td>
+<td>2895</td>
+<td>3.926238</td>
+<td>4.314244e-05</td>
+<td>True</td>
+<td>0.431424</td>
+<td>0.430648</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9950</td>
+<td>non-null</td>
+<td>9950</td>
+<td>3.867805</td>
+<td>5.490961e-05</td>
+<td>True</td>
+<td>0.549096</td>
+<td>0.548053</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>We can verify this ourselves: the last 20th p-value on this output is multiplied by 9981: 5.490961e-05 * 9981 = 0.548053. Holm’s correction is also the default method for adjusting p-values in <code>p.adjust()</code> function in R language.</p>
+</section>
+</section>
+<section id="false-discovery-rate" class="level2">
+<h2 class="anchored" data-anchor-id="false-discovery-rate">False Discovery Rate</h2>
+<section id="benjamini-hochberg" class="level3">
+<h3 class="anchored" data-anchor-id="benjamini-hochberg">Benjamini-Hochberg</h3>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fl">5.114466e-08</span> <span class="op">*</span> <span class="dv">1000</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="9">
+<pre><code>5.114466e-05</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'p_value_bh'</span>] <span class="op">=</span> adjust_pvalues(df[<span class="st">'p_value'</span>], <span class="st">'fdr_bh'</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>df.sort_values(<span class="st">'p_value_bh'</span>).head(<span class="dv">40</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">hypothesis</th>
+<th data-quarto-table-cell-role="th">feature</th>
+<th data-quarto-table-cell-role="th">x</th>
+<th data-quarto-table-cell-role="th">p_value</th>
+<th data-quarto-table-cell-role="th">is_raw_p_value_significant</th>
+<th data-quarto-table-cell-role="th">p_value_bonf</th>
+<th data-quarto-table-cell-role="th">p_value_holm</th>
+<th data-quarto-table-cell-role="th">p_value_bh</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9907</td>
+<td>non-null</td>
+<td>9907</td>
+<td>5.322609</td>
+<td>5.114466e-08</td>
+<td>True</td>
+<td>0.000511</td>
+<td>0.000511</td>
+<td>0.000511</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9942</td>
+<td>non-null</td>
+<td>9942</td>
+<td>5.022174</td>
+<td>2.554492e-07</td>
+<td>True</td>
+<td>0.002554</td>
+<td>0.002554</td>
+<td>0.001277</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9941</td>
+<td>non-null</td>
+<td>9941</td>
+<td>4.801528</td>
+<td>7.872958e-07</td>
+<td>True</td>
+<td>0.007873</td>
+<td>0.007871</td>
+<td>0.001968</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9943</td>
+<td>non-null</td>
+<td>9943</td>
+<td>4.831177</td>
+<td>6.786409e-07</td>
+<td>True</td>
+<td>0.006786</td>
+<td>0.006785</td>
+<td>0.001968</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9976</td>
+<td>non-null</td>
+<td>9976</td>
+<td>4.674271</td>
+<td>1.475000e-06</td>
+<td>True</td>
+<td>0.014750</td>
+<td>0.014744</td>
+<td>0.002950</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9964</td>
+<td>non-null</td>
+<td>9964</td>
+<td>4.589147</td>
+<td>2.225301e-06</td>
+<td>True</td>
+<td>0.022253</td>
+<td>0.022242</td>
+<td>0.003709</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9974</td>
+<td>non-null</td>
+<td>9974</td>
+<td>4.515318</td>
+<td>3.161090e-06</td>
+<td>True</td>
+<td>0.031611</td>
+<td>0.031592</td>
+<td>0.004516</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9990</td>
+<td>non-null</td>
+<td>9990</td>
+<td>4.433625</td>
+<td>4.633087e-06</td>
+<td>True</td>
+<td>0.046331</td>
+<td>0.046298</td>
+<td>0.005637</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9909</td>
+<td>non-null</td>
+<td>9909</td>
+<td>4.414029</td>
+<td>5.073215e-06</td>
+<td>True</td>
+<td>0.050732</td>
+<td>0.050692</td>
+<td>0.005637</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9995</td>
+<td>non-null</td>
+<td>9995</td>
+<td>4.301102</td>
+<td>8.497538e-06</td>
+<td>True</td>
+<td>0.084975</td>
+<td>0.084890</td>
+<td>0.007097</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9916</td>
+<td>non-null</td>
+<td>9916</td>
+<td>4.316007</td>
+<td>7.943832e-06</td>
+<td>True</td>
+<td>0.079438</td>
+<td>0.079367</td>
+<td>0.007097</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9949</td>
+<td>non-null</td>
+<td>9949</td>
+<td>4.300625</td>
+<td>8.515838e-06</td>
+<td>True</td>
+<td>0.085158</td>
+<td>0.085065</td>
+<td>0.007097</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9994</td>
+<td>non-null</td>
+<td>9994</td>
+<td>4.194214</td>
+<td>1.369094e-05</td>
+<td>True</td>
+<td>0.136909</td>
+<td>0.136745</td>
+<td>0.010531</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9908</td>
+<td>non-null</td>
+<td>9908</td>
+<td>4.061817</td>
+<td>2.434616e-05</td>
+<td>True</td>
+<td>0.243462</td>
+<td>0.243145</td>
+<td>0.017296</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9923</td>
+<td>non-null</td>
+<td>9923</td>
+<td>4.046955</td>
+<td>2.594416e-05</td>
+<td>True</td>
+<td>0.259442</td>
+<td>0.259078</td>
+<td>0.017296</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9911</td>
+<td>non-null</td>
+<td>9911</td>
+<td>3.967932</td>
+<td>3.624951e-05</td>
+<td>True</td>
+<td>0.362495</td>
+<td>0.361915</td>
+<td>0.021323</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9904</td>
+<td>non-null</td>
+<td>9904</td>
+<td>3.970488</td>
+<td>3.586272e-05</td>
+<td>True</td>
+<td>0.358627</td>
+<td>0.358089</td>
+<td>0.021323</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9900</td>
+<td>non-null</td>
+<td>9900</td>
+<td>3.934655</td>
+<td>4.165819e-05</td>
+<td>True</td>
+<td>0.416582</td>
+<td>0.415874</td>
+<td>0.022707</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2895</td>
+<td>null</td>
+<td>2895</td>
+<td>3.926238</td>
+<td>4.314244e-05</td>
+<td>True</td>
+<td>0.431424</td>
+<td>0.430648</td>
+<td>0.022707</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9950</td>
+<td>non-null</td>
+<td>9950</td>
+<td>3.867805</td>
+<td>5.490961e-05</td>
+<td>True</td>
+<td>0.549096</td>
+<td>0.548053</td>
+<td>0.026178</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">209</td>
+<td>null</td>
+<td>209</td>
+<td>3.852731</td>
+<td>5.840373e-05</td>
+<td>True</td>
+<td>0.584037</td>
+<td>0.582811</td>
+<td>0.026178</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9972</td>
+<td>non-null</td>
+<td>9972</td>
+<td>3.845273</td>
+<td>6.020908e-05</td>
+<td>True</td>
+<td>0.602091</td>
+<td>0.600766</td>
+<td>0.026178</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9937</td>
+<td>non-null</td>
+<td>9937</td>
+<td>3.858270</td>
+<td>5.709613e-05</td>
+<td>True</td>
+<td>0.570961</td>
+<td>0.569819</td>
+<td>0.026178</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9913</td>
+<td>non-null</td>
+<td>9913</td>
+<td>3.795864</td>
+<td>7.356513e-05</td>
+<td>True</td>
+<td>0.735651</td>
+<td>0.733959</td>
+<td>0.030652</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9955</td>
+<td>non-null</td>
+<td>9955</td>
+<td>3.697051</td>
+<td>1.090593e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040320</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9962</td>
+<td>non-null</td>
+<td>9962</td>
+<td>3.688496</td>
+<td>1.127918e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040320</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9928</td>
+<td>non-null</td>
+<td>9928</td>
+<td>3.688260</td>
+<td>1.128966e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040320</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9971</td>
+<td>non-null</td>
+<td>9971</td>
+<td>3.701390</td>
+<td>1.072108e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040320</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9932</td>
+<td>non-null</td>
+<td>9932</td>
+<td>3.656899</td>
+<td>1.276426e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040610</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9914</td>
+<td>non-null</td>
+<td>9914</td>
+<td>3.654388</td>
+<td>1.288980e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040610</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9999</td>
+<td>non-null</td>
+<td>9999</td>
+<td>3.644388</td>
+<td>1.340142e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040610</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9958</td>
+<td>non-null</td>
+<td>9958</td>
+<td>3.650668</td>
+<td>1.307798e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040610</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9992</td>
+<td>non-null</td>
+<td>9992</td>
+<td>3.662169</td>
+<td>1.250445e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040610</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9906</td>
+<td>non-null</td>
+<td>9906</td>
+<td>3.636553</td>
+<td>1.381553e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.040634</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9973</td>
+<td>non-null</td>
+<td>9973</td>
+<td>3.603781</td>
+<td>1.568104e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.044803</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9929</td>
+<td>non-null</td>
+<td>9929</td>
+<td>3.547739</td>
+<td>1.942765e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.053966</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">6891</td>
+<td>null</td>
+<td>6891</td>
+<td>3.529055</td>
+<td>2.085231e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.055525</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9982</td>
+<td>non-null</td>
+<td>9982</td>
+<td>3.525937</td>
+<td>2.109934e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.055525</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9965</td>
+<td>non-null</td>
+<td>9965</td>
+<td>3.501129</td>
+<td>2.316455e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.059088</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9998</td>
+<td>non-null</td>
+<td>9998</td>
+<td>3.495766</td>
+<td>2.363519e-04</td>
+<td>True</td>
+<td>1.000000</td>
+<td>1.000000</td>
+<td>0.059088</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>pval_sorted_df <span class="op">=</span> df[[<span class="st">'hypothesis'</span>, <span class="st">'feature'</span>, <span class="st">'p_value'</span>, <span class="st">'p_value_bh'</span>]].sort_values(<span class="st">'p_value_bh'</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>pval_sorted_df[<span class="st">'rank'</span>] <span class="op">=</span> <span class="bu">range</span>(<span class="bu">len</span>(pval_sorted_df))</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>pval_sorted_df.head(<span class="dv">20</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">hypothesis</th>
+<th data-quarto-table-cell-role="th">feature</th>
+<th data-quarto-table-cell-role="th">p_value</th>
+<th data-quarto-table-cell-role="th">p_value_bh</th>
+<th data-quarto-table-cell-role="th">rank</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9907</td>
+<td>non-null</td>
+<td>9907</td>
+<td>5.114466e-08</td>
+<td>0.000511</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9942</td>
+<td>non-null</td>
+<td>9942</td>
+<td>2.554492e-07</td>
+<td>0.001277</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9941</td>
+<td>non-null</td>
+<td>9941</td>
+<td>7.872958e-07</td>
+<td>0.001968</td>
+<td>2</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9943</td>
+<td>non-null</td>
+<td>9943</td>
+<td>6.786409e-07</td>
+<td>0.001968</td>
+<td>3</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9976</td>
+<td>non-null</td>
+<td>9976</td>
+<td>1.475000e-06</td>
+<td>0.002950</td>
+<td>4</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9964</td>
+<td>non-null</td>
+<td>9964</td>
+<td>2.225301e-06</td>
+<td>0.003709</td>
+<td>5</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9974</td>
+<td>non-null</td>
+<td>9974</td>
+<td>3.161090e-06</td>
+<td>0.004516</td>
+<td>6</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9990</td>
+<td>non-null</td>
+<td>9990</td>
+<td>4.633087e-06</td>
+<td>0.005637</td>
+<td>7</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9909</td>
+<td>non-null</td>
+<td>9909</td>
+<td>5.073215e-06</td>
+<td>0.005637</td>
+<td>8</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9995</td>
+<td>non-null</td>
+<td>9995</td>
+<td>8.497538e-06</td>
+<td>0.007097</td>
+<td>9</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9916</td>
+<td>non-null</td>
+<td>9916</td>
+<td>7.943832e-06</td>
+<td>0.007097</td>
+<td>10</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9949</td>
+<td>non-null</td>
+<td>9949</td>
+<td>8.515838e-06</td>
+<td>0.007097</td>
+<td>11</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9994</td>
+<td>non-null</td>
+<td>9994</td>
+<td>1.369094e-05</td>
+<td>0.010531</td>
+<td>12</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9908</td>
+<td>non-null</td>
+<td>9908</td>
+<td>2.434616e-05</td>
+<td>0.017296</td>
+<td>13</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9923</td>
+<td>non-null</td>
+<td>9923</td>
+<td>2.594416e-05</td>
+<td>0.017296</td>
+<td>14</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9911</td>
+<td>non-null</td>
+<td>9911</td>
+<td>3.624951e-05</td>
+<td>0.021323</td>
+<td>15</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">9904</td>
+<td>non-null</td>
+<td>9904</td>
+<td>3.586272e-05</td>
+<td>0.021323</td>
+<td>16</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9900</td>
+<td>non-null</td>
+<td>9900</td>
+<td>4.165819e-05</td>
+<td>0.022707</td>
+<td>17</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2895</td>
+<td>null</td>
+<td>2895</td>
+<td>4.314244e-05</td>
+<td>0.022707</td>
+<td>18</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9950</td>
+<td>non-null</td>
+<td>9950</td>
+<td>5.490961e-05</td>
+<td>0.026178</td>
+<td>19</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
