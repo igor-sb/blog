@@ -1,0 +1,11 @@
+{
+    "https://api.shinyapps.io": {
+        "server_url": "https://api.shinyapps.io",
+        "filename": "/Users/igor/repos/blog/logistic_app",
+        "app_url": "https://igor-s.shinyapps.io/logistic-fits/",
+        "app_id": 9018739,
+        "app_guid": null,
+        "title": "logistic-fits",
+        "app_mode": "python-shiny"
+    }
+}
