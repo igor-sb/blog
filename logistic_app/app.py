@@ -14,8 +14,8 @@ import pandas as pd
 from scipy.stats import uniform, bernoulli
 
 def logistic(x, x0, k):
-	# return 1 / (1 + np.exp(-k*(x - x0)))
-	return 1 / (1 + np.exp(-(k*x - x0)))
+	return 1 / (1 + np.exp(-k*(x - x0)))
+	# return 1 / (1 + np.exp(-(k*x - x0)))
 
 def create_test_data(n, x0, k):
 	df = pd.DataFrame({
