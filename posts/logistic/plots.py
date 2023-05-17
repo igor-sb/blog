@@ -22,7 +22,6 @@ def plot_naive_logistic_fit(sample_df, curve_df):
 			shape='o'
 		)
 		+ p9.scale_y_continuous(name='y and p(x)')
-		+ p9.labels.ggtitle('Naïve least-square fit')
 		+ p9.theme_classic()
 		+ p9.theme(legend_position='none')
 	)
