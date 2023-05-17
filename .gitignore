@@ -8,3 +8,4 @@ multiple_hypothesis_testing_files/*
 *.pdf
 *.html
 *_gist_url
+__pycache__/*
