@@ -1,6 +1,5 @@
 import plotnine as p9
 
-
 def plot_smooth_logistic_curve(df):
 	return (
 		p9.ggplot(df, p9.aes('x', 'p_x'))
@@ -16,10 +15,10 @@ def plot_naive_logistic_fit(sample_df, curve_df):
 			data=curve_df,
 			mapping=p9.aes(y='p_x')
 		)
-		+ p9.geom_linerange(
-			mapping=p9.aes(ymin='p_x', ymax='y', color='factor(y)'),
-			linetype='dashed'
-		)
+		# + p9.geom_linerange(
+		# 	mapping=p9.aes(ymin='p_x', ymax='y', color='factor(y)'),
+		# 	linetype='dashed'
+		# )
 		+ p9.geom_point(
 			mapping=p9.aes(y='y', fill='factor(y)'),
 			size=4,
