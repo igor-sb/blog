@@ -9,3 +9,4 @@ multiple_hypothesis_testing_files/*
 *.html
 *_gist_url
 __pycache__/*
+.vscode/settings.json
