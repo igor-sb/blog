@@ -14,7 +14,7 @@ def plot_cost_vs_beta(negloglik_sweep_betas_df, width):
         + p9.theme_classic()
     )
 
-def animate_subject_event_times_and_mark_at_risk(df, color_map='factor(x)'):
+def animate_subject_event_times_and_mark_at_risk(df, color_map='x'):
     events_df = df.sort_values('time').query('event == 1')
     subjects = events_df['subject']
     times = events_df['time']
@@ -25,7 +25,7 @@ def animate_subject_event_times_and_mark_at_risk(df, color_map='factor(x)'):
     ani = PlotnineAnimation(plots, interval=2000, repeat_delay=2000)
     return ani
     
-def plot_subject_event_times(df, color_map='factor(x)'):
+def plot_subject_event_times(df, color_map='x'):
     return (
         p9.ggplot(
             df, p9.aes(x='time', y='subject', color=color_map)
@@ -44,7 +44,7 @@ def plot_subject_event_times(df, color_map='factor(x)'):
     )
 
 # time = event_time_and_x_from_subject(df, subject)[0]
-def plot_subject_event_times_and_mark_at_risk(df, time, subject, color_map='factor(x)'):
+def plot_subject_event_times_and_mark_at_risk(df, time, subject, color_map='x'):
     at_risk_annotation_df = _subjects_at_risk_at_event_time(df, time)
     likelihood_label_df = pd.DataFrame({
         'x': np.max(df['time']),
