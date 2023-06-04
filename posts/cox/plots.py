@@ -22,7 +22,7 @@ def animate_subject_event_times_and_mark_at_risk(df, color_map='x'):
         plot_subject_event_times_and_mark_at_risk(df, time, subject, color_map)
         for subject, time in zip(subjects, times)
     )
-    ani = PlotnineAnimation(plots, interval=2000, repeat_delay=2000)
+    ani = PlotnineAnimation(plots, interval=3000, repeat_delay=3000)
     return ani
     
 def plot_subject_event_times(df, color_map='x'):
@@ -86,8 +86,8 @@ def plot_subject_event_times_and_mark_at_risk(df, time, subject, color_map='x'):
 
 def _create_latex_expression_likelihood(df, time, subject):
     subjects_at_risk_df = _subjects_at_risk_at_event_time(df, time)
-    likelihoods_at_risk = ['L_' + subject_at_risk for subject_at_risk in subjects_at_risk_df['subject']]
-    return '\\frac{L_' + subject + '}{' + ' + '.join(likelihoods_at_risk) + '}'
+    likelihoods_at_risk = ['h_' + subject_at_risk for subject_at_risk in subjects_at_risk_df['subject']]
+    return '\\frac{h_' + subject + '}{' + ' + '.join(likelihoods_at_risk) + '}'
 
 def _subjects_at_risk_at_event_time(df, time):
     subjects_at_risk = df.query(f'time >= {time}')['subject']
