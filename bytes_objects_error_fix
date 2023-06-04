@@ -1,0 +1,5 @@
+#!/bin/bash
+
+basename="${1%.*}"
+echo "basename is: $basename"
+sed '/"attachments": {}/d' $1 > ${basename}_clean.ipynb

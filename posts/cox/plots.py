@@ -14,12 +14,12 @@ def plot_cost_vs_beta(negloglik_sweep_betas_df, width):
         + p9.theme_classic()
     )
 
-def animate_subject_event_times_and_mark_at_risk(df):
+def animate_subject_event_times_and_mark_at_risk(df, color_map='factor(x)'):
     events_df = df.sort_values('time').query('event == 1')
     subjects = events_df['subject']
     times = events_df['time']
     plots = (
-        plot_subject_event_times_and_mark_at_risk(df, time, subject)
+        plot_subject_event_times_and_mark_at_risk(df, time, subject, color_map)
         for subject, time in zip(subjects, times)
     )
     ani = PlotnineAnimation(plots, interval=2000, repeat_delay=2000)
