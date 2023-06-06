@@ -3,9 +3,10 @@
 .RData
 .Ruserdata
 *.pyc
-.ipynb_checkpoints/*
+**/.ipynb_checkpoints
 multiple_hypothesis_testing_files/*
 *.pdf
 *.html
 *_gist_url
 __pycache__/*
+.vscode/settings.json
